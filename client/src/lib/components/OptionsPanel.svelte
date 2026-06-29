@@ -6,6 +6,10 @@
   export let converting;
   export let hasFile;
   export let errorMsg = '';
+  export let compressionLevel = 6;
+  export let tiffCompression = 'lzw';
+  export let optimizeSvg = false;
+  export let preserveMetadata = false;
 
   import { createEventDispatcher } from 'svelte';
   const dispatch = createEventDispatcher();
@@ -21,6 +25,7 @@
       <option value="avif">AVIF</option>
       <option value="tiff">TIFF</option>
       <option value="bmp">BMP</option>
+      <option value="heic">HEIC</option>
       <option value="svg">SVG</option>
     </select>
   </div>
@@ -41,6 +46,39 @@
       <label class="block text-sm mb-1" for="qual">Quality: {quality}%</label>
       <input id="qual" type="range" min="1" max="100" bind:value={quality} class="w-full accent-cyan-400" />
     </div>
+  {/if}
+
+  {#if targetFormat === 'png'}
+    <div>
+      <label class="block text-sm mb-1" for="compression">Compression Level: {compressionLevel}</label>
+      <input id="compression" type="range" min="0" max="9" bind:value={compressionLevel} class="w-full accent-cyan-400" />
+    </div>
+  {/if}
+
+  {#if targetFormat === 'tiff'}
+    <div>
+      <label class="block text-sm mb-1" for="tiffCompression">TIFF Compression</label>
+      <select id="tiffCompression" bind:value={tiffCompression} class="w-full bg-gray-800 rounded p-3 border border-gray-700 focus:border-cyan-400">
+        <option value="none">None</option>
+        <option value="lzw">LZW</option>
+        <option value="zip">ZIP</option>
+        <option value="jpeg">JPEG</option>
+      </select>
+    </div>
+  {/if}
+
+  {#if targetFormat === 'svg'}
+    <label class="flex items-center gap-2 mb-2">
+      <input type="checkbox" bind:checked={optimizeSvg} class="accent-cyan-400" />
+      <span>Optimize SVG output</span>
+    </label>
+  {/if}
+
+  {#if targetFormat !== 'svg'}
+    <label class="flex items-center gap-2 mb-2">
+      <input type="checkbox" bind:checked={preserveMetadata} class="accent-cyan-400" />
+      <span>Preserve metadata (EXIF/etc)</span>
+    </label>
   {/if}
 
   <button

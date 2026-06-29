@@ -1,0 +1,17 @@
+{
+  "name": "Pixvert Image Converter",
+  "short_name": "Pixvert",
+  "description": "Real-time image converter with vector tracing, batch processing, and live previews",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#111827",
+  "theme_color": "#06b6d4",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,11 +1,57 @@
 import sharp from 'sharp';
+import { optimize } from 'svgo';
+
+const MAGIC_BYTES = [
+    { bytes: [0x89, 0x50, 0x4E, 0x47] },
+    { bytes: [0xFF, 0xD8] },
+    { bytes: [0x47, 0x49, 0x46] },
+    { bytes: [0x42, 0x4D] },
+    { bytes: [0x49, 0x49] },
+    { bytes: [0x4D, 0x4D] },
+    { bytes: [0x00, 0x00, 0x00, 0x1C, 0x66, 0x74, 0x79, 0x70, 0x61, 0x76, 0x69, 0x66] },
+];
+
+export function validateImage(buffer) {
+    if (!buffer || typeof buffer === 'undefined' || buffer.length === 0) {
+        throw new Error('Empty image buffer');
+    }
+
+    if (buffer.length >= 12 &&
+        buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46 &&
+        buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50) {
+        return;
+    }
+
+    const valid = MAGIC_BYTES.some(({ bytes }) => {
+        if (buffer.length < bytes.length) return false;
+        return bytes.every((b, i) => buffer[i] === b);
+    });
+
+    if (!valid) {
+        throw new Error('Unrecognized image format or invalid image file');
+    }
+}
+
+async function optimizeSvg(svgString) {
+    const result = optimize(svgString, {
+        multipass: true,
+        plugins: [
+            'preset-default',
+            'removeDimensions',
+            'removeXMLNS',
+        ],
+    });
+    return result.data;
+}
 
 export async function convertImage(buffer, options) {
-    const { targetFormat, width, height, quality, trace, traceOptions, crop, rotate, flip } = options;
+    validateImage(buffer);
+
+    const { targetFormat, width, height, quality, trace, traceOptions, crop, rotate, flip, compressionLevel, tiffCompression, preserveMetadata } = options;
 
     if (targetFormat === 'svg') {
         if (trace) {
-            const svgString = await rasterToSvgTrace(buffer, traceOptions || {});
+            const svgString = await rasterToSvgTrace(buffer, traceOptions || {}, options.optimizeSvg);
             return { buffer: Buffer.from(svgString), mime: 'image/svg+xml' };
         }
         const svgString = await rasterToSvgEmbed(buffer, width, height);
@@ -35,21 +81,27 @@ export async function convertImage(buffer, options) {
     }
 
     const formatConfigs = {
-        png:  { format: 'png' },
+        png:  { format: 'png', compressionLevel: compressionLevel ?? 6 },
         jpeg: { format: 'jpeg', quality: quality ?? 90 },
         webp: { format: 'webp', quality: quality ?? 90 },
         avif: { format: 'avif', quality: quality ?? 90 },
-        tiff: { format: 'tiff' },
+        tiff: { format: 'tiff', compression: tiffCompression || 'lzw' },
         bmp:  { format: 'bmp' },
+        heic: { format: 'heif', quality: quality ?? 90 },
     };
 
     const mimeMap = {
         png: 'image/png', jpeg: 'image/jpeg', webp: 'image/webp',
         avif: 'image/avif', tiff: 'image/tiff', bmp: 'image/bmp',
+        heic: 'image/heic',
     };
 
     const fmt = formatConfigs[targetFormat];
     if (!fmt) throw new Error(`Unsupported format: ${targetFormat}`);
+
+    if (preserveMetadata) {
+        img = img.withMetadata();
+    }
 
     const result = await img.toFormat(fmt.format, fmt).toBuffer();
     return { buffer: result, mime: mimeMap[targetFormat], size: result.length };
@@ -69,7 +121,7 @@ export async function rasterToSvgEmbed(buffer, width, height) {
 </svg>`;
 }
 
-export async function rasterToSvgTrace(buffer, options) {
+export async function rasterToSvgTrace(buffer, options, optimizeSvgFlag) {
     const init = (await import('vtracer-wasm')).default;
     const { to_svg } = await import('vtracer-wasm');
     await init();
@@ -79,7 +131,7 @@ export async function rasterToSvgTrace(buffer, options) {
 
     const rgba = await sharp(buffer).ensureAlpha().raw().toBuffer();
 
-    return to_svg(new Uint8Array(rgba), width, height, {
+    const svg = to_svg(new Uint8Array(rgba), width, height, {
         mode: options.mode || 'color',
         color_precision: options.colors || 16,
         layer_difference: options.layerDiff || 16,
@@ -90,6 +142,11 @@ export async function rasterToSvgTrace(buffer, options) {
         path_precision: options.pathPrecision || 5,
         filter_speckle: options.filterSpeckle || 4,
     });
+
+    if (optimizeSvgFlag) {
+        return await optimizeSvg(svg);
+    }
+    return svg;
 }
 
 export async function fetchImage(url) {
@@ -100,7 +157,7 @@ export async function fetchImage(url) {
     return { buffer, type };
 }
 
-function parseCrop(url) {
+export function parseCrop(url) {
     const x = parseInt(url.searchParams.get('crop_x'));
     const y = parseInt(url.searchParams.get('crop_y'));
     const w = parseInt(url.searchParams.get('crop_w'));
@@ -110,6 +167,7 @@ function parseCrop(url) {
 }
 
 export function buildConvertOptions(url) {
+    const rawCompression = url.searchParams.get('compressionLevel');
     return {
         targetFormat: url.searchParams.get('format') || 'png',
         width: parseInt(url.searchParams.get('width')) || null,
@@ -130,5 +188,9 @@ export function buildConvertOptions(url) {
             iterations: parseInt(url.searchParams.get('iterations')) || 10,
             splice: parseInt(url.searchParams.get('splice')) || 45,
         },
+        compressionLevel: rawCompression !== null ? parseInt(rawCompression) : undefined,
+        tiffCompression: url.searchParams.get('tiffCompression') || undefined,
+        preserveMetadata: url.searchParams.get('preserveMetadata') === 'true',
+        optimizeSvg: url.searchParams.get('optimizeSvg') === 'true',
     };
 }

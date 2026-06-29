@@ -15,6 +15,10 @@
   export let cropH = 0;
   export let rotateAngle = 0;
   export let flipMode = 'none';
+  export let compressionLevel = 6;
+  export let tiffCompression = 'lzw';
+  export let optimizeSvg = false;
+  export let preserveMetadata = false;
 
   let batchFiles = [];
   let batchPreviews = [];
@@ -60,7 +64,7 @@
     batchFiles.forEach(f => formData.append('files', f));
 
     const t = traceOptions;
-    let url = `/batch?format=${targetFormat}&width=${width || ''}&height=${height || ''}&quality=${quality}&trace=${svgMode === 'trace'}&mode=${t.mode}&colors=${t.colors}&filterSpeckle=${t.filterSpeckle}&pathPrecision=${t.pathPrecision}&layerDiff=${t.layerDiff}&corner=${t.corner}&length=${t.length}&iterations=${t.iterations}&splice=${t.splice}`;
+    let url = `/batch?format=${targetFormat}&width=${width || ''}&height=${height || ''}&quality=${quality}&compressionLevel=${compressionLevel}&tiffCompression=${tiffCompression}&optimizeSvg=${optimizeSvg}&preserveMetadata=${preserveMetadata}&trace=${svgMode === 'trace'}&mode=${t.mode}&colors=${t.colors}&filterSpeckle=${t.filterSpeckle}&pathPrecision=${t.pathPrecision}&layerDiff=${t.layerDiff}&corner=${t.corner}&length=${t.length}&iterations=${t.iterations}&splice=${t.splice}`;
     if (cropActive && cropW > 0 && cropH > 0) {
       url += `&crop_x=${cropX}&crop_y=${cropY}&crop_w=${cropW}&crop_h=${cropH}`;
     }

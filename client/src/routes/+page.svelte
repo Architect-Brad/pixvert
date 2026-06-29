@@ -22,6 +22,10 @@
   let width = 0;
   let height = 0;
   let quality = 85;
+  let compressionLevel = 6;
+  let tiffCompression = 'lzw';
+  let optimizeSvg = false;
+  let preserveMetadata = false;
   let svgMode = 'embed';
   let converting = false;
   let errorMsg = '';
@@ -174,6 +178,10 @@
     }
     if (rotateAngle) url += `&rotate=${rotateAngle}`;
     if (flipMode !== 'none') url += `&flip=${flipMode}`;
+    url += `&compressionLevel=${compressionLevel}`;
+    url += `&tiffCompression=${tiffCompression}`;
+    url += `&optimizeSvg=${optimizeSvg}`;
+    url += `&preserveMetadata=${preserveMetadata}`;
     return url;
   }
 
@@ -204,9 +212,18 @@
     cropX = x; cropY = y; cropW = w; cropH = h;
     cropActive = true;
   }
+
+  function handleKeydown(e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === 'o') { e.preventDefault(); document.getElementById('fileInput')?.click(); }
+      if (e.key === 'Enter' && originalFile) { e.preventDefault(); convertNow(); }
+    }
+  }
 </script>
 
-<main class="min-h-screen bg-gray-900 text-white p-6 md:p-10 font-sans">
+<!-- svelte-ignore a11y-no-static-element-interactions -->
+<main class="min-h-screen bg-gray-900 text-white p-4 md:p-10 font-sans container mx-auto max-w-full overflow-x-hidden" on:keydown={handleKeydown} tabindex="-1">
   <h1 class="text-4xl md:text-5xl font-bold mb-2 bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
     Pixvert
   </h1>
@@ -223,7 +240,7 @@
     <UrlInput on:file={(e) => { tab = 'file'; loadFile(e.detail); }} />
   {/if}
 
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+  <div class="grid grid-cols-1 lg:grid-cols-1 xl:grid-cols-2 gap-8 mb-12">
     <UploadZone
       previewUrl={originalPreviewUrl}
       fileName={originalFile?.name}
@@ -245,6 +262,7 @@
 
       <OptionsPanel
         bind:targetFormat bind:width bind:height bind:quality
+        bind:compressionLevel bind:tiffCompression bind:optimizeSvg bind:preserveMetadata
         {converting}
         hasFile={!!originalFile}
         {errorMsg}
@@ -282,6 +300,7 @@
     {svgMode} {traceOptions}
     {cropActive} {cropX} {cropY} {cropW} {cropH}
     {rotateAngle} {flipMode}
+    {compressionLevel} {tiffCompression} {optimizeSvg} {preserveMetadata}
   />
 
   <p class="mt-12 text-center text-gray-500 text-sm">Pixvert — built with Rust, WASM, and love.</p>

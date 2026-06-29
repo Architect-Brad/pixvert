@@ -30,9 +30,9 @@
   on:dragover|preventDefault on:drop={handleDrop}
   role="button" tabindex="0"
 >
-  <input type="file" id="singleFileInput" class="hidden" on:change={handleInput}
+  <input type="file" id="fileInput" class="hidden" on:change={handleInput}
          accept="image/png,image/jpeg,image/webp,image/avif,image/svg+xml,image/tiff,image/bmp,.heic,.heif,.raw,.cr2,.nef,.arw,.dng" />
-  <label for="singleFileInput" class="cursor-pointer block">
+  <label for="fileInput" class="cursor-pointer block">
     {#if previewUrl}
       <img src={previewUrl} alt="original" class="max-h-64 mx-auto rounded-lg shadow-lg" />
       <p class="mt-4 text-gray-300">{fileName} ({formatSize(fileSize)})</p>

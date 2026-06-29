@@ -160,6 +160,9 @@
              on:mousemove={handleMouseMove}
              on:mouseup={handleMouseUp}
              on:mouseleave={handleMouseUp}
+             on:touchstart={(e) => { e.preventDefault(); const t = e.touches[0]; handleMouseDown({ clientX: t.clientX, clientY: t.clientY }); }}
+             on:touchmove={(e) => { e.preventDefault(); const t = e.touches[0]; handleMouseMove({ clientX: t.clientX, clientY: t.clientY }); }}
+             on:touchend={(e) => { e.preventDefault(); handleMouseUp(); }}
              role="application"
         ></div>
       </div>
