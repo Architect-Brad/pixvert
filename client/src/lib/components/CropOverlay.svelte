@@ -138,8 +138,10 @@
 </script>
 
 {#if imageUrl}
-  <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center" on:click={cancel}>
-    <div class="relative bg-gray-900 rounded-2xl p-6 max-w-4xl w-full mx-4" on:click|stopPropagation>
+  <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+  <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center" on:click={cancel} role="presentation">
+    <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+    <div class="relative bg-gray-900 rounded-2xl p-6 max-w-4xl w-full mx-4" on:click|stopPropagation role="dialog">
       <h3 class="text-lg font-semibold text-cyan-400 mb-4">Select crop region</h3>
       <div class="relative overflow-hidden rounded-lg" bind:this={container}
            style="max-height: 70vh; aspect-ratio: {imageWidth}/{imageHeight}; cursor: {selW > 0 && selH > 0 ? 'move' : 'crosshair'}"
@@ -152,6 +154,7 @@
             <div class="absolute -top-7 left-0 text-xs text-white bg-cyan-600 px-1 rounded">{Math.round(selW)}×{Math.round(selH)}</div>
           </div>
         {/if}
+        <!-- svelte-ignore a11y-no-static-element-interactions -->
         <div class="absolute inset-0"
              on:mousedown={handleMouseDown}
              on:mousemove={handleMouseMove}

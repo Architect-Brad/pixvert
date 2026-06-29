@@ -1,6 +1,5 @@
 <script>
   import { createEventDispatcher } from 'svelte';
-  import { apiUrl } from '$lib/api';
   const dispatch = createEventDispatcher();
 
   export let targetFormat = 'webp';
@@ -18,18 +17,14 @@
   export let flipMode = 'none';
 
   let batchFiles = [];
-  let batchProgress = [];
   let batchPreviews = [];
-  let batchJobId = null;
   let batchRunning = false;
-  let batchEventSource = null;
   let dragIndex = null;
   let errorMsg = '';
 
   function handleBatchSelect(e) {
     batchPreviews.forEach(u => URL.revokeObjectURL(u));
     batchFiles = [...e.target.files];
-    batchProgress = batchFiles.map(f => ({ name: f.name, status: 'pending' }));
     batchPreviews = batchFiles.map(f => URL.createObjectURL(f));
   }
 
@@ -48,69 +43,48 @@
     if (dragIndex === null || dragIndex === i) return;
     const files = [...batchFiles];
     const previews = [...batchPreviews];
-    const progress = [...batchProgress];
     const [f] = files.splice(dragIndex, 1);
     const [p] = previews.splice(dragIndex, 1);
-    const [pr] = progress.splice(dragIndex, 1);
     files.splice(i, 0, f);
     previews.splice(i, 0, p);
-    progress.splice(i, 0, pr);
     batchFiles = files;
     batchPreviews = previews;
-    batchProgress = progress;
     dragIndex = null;
   }
 
   async function startBatch() {
     if (!batchFiles.length) return;
     batchRunning = true;
+    errorMsg = '';
     const formData = new FormData();
     batchFiles.forEach(f => formData.append('files', f));
 
     const t = traceOptions;
-    let url = apiUrl(`/batch?format=${targetFormat}&width=${width || ''}&height=${height || ''}&quality=${quality}&trace=${svgMode === 'trace'}&mode=${t.mode}&colors=${t.colors}&filterSpeckle=${t.filterSpeckle}&pathPrecision=${t.pathPrecision}&layerDiff=${t.layerDiff}&corner=${t.corner}&length=${t.length}&iterations=${t.iterations}&splice=${t.splice}`);
+    let url = `/batch?format=${targetFormat}&width=${width || ''}&height=${height || ''}&quality=${quality}&trace=${svgMode === 'trace'}&mode=${t.mode}&colors=${t.colors}&filterSpeckle=${t.filterSpeckle}&pathPrecision=${t.pathPrecision}&layerDiff=${t.layerDiff}&corner=${t.corner}&length=${t.length}&iterations=${t.iterations}&splice=${t.splice}`;
     if (cropActive && cropW > 0 && cropH > 0) {
       url += `&crop_x=${cropX}&crop_y=${cropY}&crop_w=${cropW}&crop_h=${cropH}`;
     }
     if (rotateAngle) url += `&rotate=${rotateAngle}`;
     if (flipMode !== 'none') url += `&flip=${flipMode}`;
 
-    const res = await fetch(url, { method: 'POST', body: formData });
-    const { jobId } = await res.json();
-    batchJobId = jobId;
-
-    batchEventSource = new EventSource(apiUrl(`/batch/progress/${jobId}`));
-    batchEventSource.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.progress) batchProgress = data.progress;
-      if (data.status === 'done') {
-        batchEventSource.close();
-        batchRunning = false;
-        downloadBatchZip();
-      } else if (data.status === 'error') {
-        batchEventSource.close();
-        batchRunning = false;
-        errorMsg = 'Batch failed.';
-      }
-    };
-    batchEventSource.onerror = () => {
-      batchEventSource.close();
+    try {
+      const res = await fetch(url, { method: 'POST', body: formData });
+      if (!res.ok) throw new Error('Batch conversion failed');
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'pixvert-batch.zip';
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+    } catch (err) {
+      errorMsg = err.message;
+    } finally {
       batchRunning = false;
-      errorMsg = 'Lost connection to server.';
-    };
-  }
-
-  function downloadBatchZip() {
-    const a = document.createElement('a');
-    a.href = apiUrl(`/batch/download/${batchJobId}`);
-    a.download = 'pixvert-batch.zip';
-    a.click();
+    }
   }
 
   function cancelBatch() {
-    if (batchEventSource) batchEventSource.close();
     batchRunning = false;
-    batchProgress = [];
   }
 </script>
 
@@ -131,23 +105,17 @@
   </div>
 
   {#if batchFiles.length > 0}
-    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-4">
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-4" role="list">
       {#each batchFiles as file, i}
         <div class="bg-gray-700 p-2 rounded-lg text-center {batchRunning ? '' : 'cursor-grab active:cursor-grabbing'}"
              draggable={!batchRunning}
              on:dragstart={(e) => handleDragStart(e, i)}
              on:dragover={handleDragOver}
              on:drop={(e) => handleBatchDrop(e, i)}
+             role="listitem"
         >
           <img src={batchPreviews[i]} alt="" class="h-16 mx-auto mb-1 rounded" />
           <p class="text-xs truncate">{file.name}</p>
-          {#if batchProgress[i]}
-            <div class="w-full bg-gray-600 h-1 mt-1 rounded">
-              <div class="h-1 rounded transition-all duration-300"
-                   style="width: {batchProgress[i].status === 'done' ? '100%' : '50%'}; background: {batchProgress[i].status === 'error' ? '#f87171' : '#22d3ee'}">
-              </div>
-            </div>
-          {/if}
         </div>
       {/each}
     </div>
@@ -161,10 +129,6 @@
         <button on:click={cancelBatch} class="px-6 py-3 bg-red-600 rounded-lg hover:bg-red-700 transition">Cancel</button>
       {/if}
     </div>
-
-    {#if batchJobId && !batchRunning}
-      <p class="mt-3 text-green-400">Batch complete! <button on:click={downloadBatchZip} class="underline">Click here to download again</button></p>
-    {/if}
   {/if}
   {#if errorMsg}
     <p class="text-red-400 mt-3">{errorMsg}</p>
